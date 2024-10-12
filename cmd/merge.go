@@ -9,13 +9,16 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
+	"github.com/robfig/cron/v3"
 	"github.com/spf13/cobra"
 )
 
 var (
 	inputPath  string
 	outputPath string
+	cronspec   string
 )
 
 var mergeCmd = &cobra.Command{
@@ -23,13 +26,29 @@ var mergeCmd = &cobra.Command{
 	Short: "Merge video files",
 	Long:  "Merge video files",
 	Run: func(cmd *cobra.Command, args []string) {
-		run()
+		if cronspec != "" {
+			// 定时任务
+			slog.Info("定时任务启动", "cron spec", cronspec)
+			c := cron.New(cron.WithChain(
+				cron.Recover(cron.DefaultLogger),
+				cron.SkipIfStillRunning(cron.DefaultLogger),
+			))
+			c.AddFunc(cronspec, func() {
+				slog.Info("定时任务执行")
+				run()
+			})
+			c.Start()
+			select {}
+		} else {
+			run()
+		}
 	},
 }
 
 func init() {
 	mergeCmd.Flags().StringVarP(&inputPath, "input_path", "i", "", "input path of video files")
 	mergeCmd.Flags().StringVarP(&outputPath, "output_path", "o", ".", "output path of merged video, default is current path")
+	mergeCmd.Flags().StringVarP(&cronspec, "cron spec", "c", "", "cron command, default is empty that not use cron")
 	rootCmd.AddCommand(mergeCmd)
 }
 
@@ -47,13 +66,13 @@ func run() {
 		// 目录不存在，创建目录
 		err := os.MkdirAll(outputPath, os.ModePerm)
 		if err != nil {
-			slog.Error("Failed to create directory:", err)
+			slog.Error("Failed to create directory", "error", err)
 			return
 		}
 		slog.Info("Directory created:", "path", outputPath)
 	} else if err != nil {
 		// 其他错误
-		slog.Error("Error checking directory:", err)
+		slog.Error("Error checking directory", "error", err)
 		return
 	}
 
@@ -89,6 +108,16 @@ func run() {
 	}
 
 	merge := func(date string, files []string) error {
+		// 只合并当天之前的文件
+		if date >= time.Now().Format("20060102") {
+			return nil
+		}
+		fileName := date + ".mp4"
+		outputFilePath := filepath.Join(outputPath, fileName)
+		// 检查是否已经合并
+		if _, err := os.Stat(outputFilePath); err == nil {
+			return nil
+		}
 		// 按时间排序
 		sort.StringSlice(files).Sort()
 		content := strings.Join(files, "")
@@ -98,7 +127,6 @@ func run() {
 			slog.Error("保存文件列表失败", "失败原因", err)
 			return err
 		}
-		outputFilePath := filepath.Join(outputPath, date+".mp4")
 		err := saveMergedVideo(inputFilesPath, outputFilePath)
 		return err
 	}
