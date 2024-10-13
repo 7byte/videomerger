@@ -119,7 +119,7 @@ func parseDateRange(dateRange string) (string, string) {
 }
 
 // 小米监控视频文件名格式，如：20240706212250_20240706213600.mp4
-var videofileReg = regexp.MustCompile(`\d{14}_\d{14}\.mp4`)
+var videofileReg = regexp.MustCompile(`^\d{14}_\d{14}\.mp4$`)
 
 // 遍历目录，找到所有视频文件
 func findAllVedio(inputPath, startdate, enddate string) (map[string][]string, error) {
