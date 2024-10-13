@@ -18,7 +18,8 @@ import (
 var (
 	inputPath  string
 	outputPath string
-	cronspec   string
+	cronSpec   string
+	dateRange  string
 )
 
 var mergeCmd = &cobra.Command{
@@ -26,14 +27,14 @@ var mergeCmd = &cobra.Command{
 	Short: "Merge video files",
 	Long:  "Merge video files",
 	Run: func(cmd *cobra.Command, args []string) {
-		if cronspec != "" {
+		if cronSpec != "" {
 			// 定时任务
-			slog.Info("定时任务启动", "cron spec", cronspec)
+			slog.Info("定时任务启动", "cron spec", cronSpec)
 			c := cron.New(cron.WithChain(
 				cron.Recover(cron.DefaultLogger),
 				cron.SkipIfStillRunning(cron.DefaultLogger),
 			))
-			c.AddFunc(cronspec, func() {
+			c.AddFunc(cronSpec, func() {
 				slog.Info("定时任务执行")
 				run()
 			})
@@ -48,12 +49,10 @@ var mergeCmd = &cobra.Command{
 func init() {
 	mergeCmd.Flags().StringVarP(&inputPath, "input_path", "i", "", "input path of video files")
 	mergeCmd.Flags().StringVarP(&outputPath, "output_path", "o", ".", "output path of merged video, default is current path")
-	mergeCmd.Flags().StringVarP(&cronspec, "cron spec", "c", "", "cron command, default is empty that not use cron")
+	mergeCmd.Flags().StringVarP(&cronSpec, "cron_spec", "c", "", "cron spec, default is empty that means run once")
+	mergeCmd.Flags().StringVarP(&dateRange, "date_range", "r", "", "date range like \"20060102-20060202\", both start date and end date can be empty, default is empty that means merge all files")
 	rootCmd.AddCommand(mergeCmd)
 }
-
-// 小米监控视频文件名格式，如：20240706212250_20240706213600.mp4
-var videofileReg = regexp.MustCompile(`\d{14}_\d{14}\.mp4`)
 
 func run() {
 	if inputPath == "" {
@@ -61,9 +60,8 @@ func run() {
 		return
 	}
 
-	// 检查输出目录是否存在
+	// 检查输出目录是否存在，目录不存在时创建目录
 	if _, err := os.Stat(outputPath); os.IsNotExist(err) {
-		// 目录不存在，创建目录
 		err := os.MkdirAll(outputPath, os.ModePerm)
 		if err != nil {
 			slog.Error("Failed to create directory", "error", err)
@@ -71,14 +69,62 @@ func run() {
 		}
 		slog.Info("Directory created:", "path", outputPath)
 	} else if err != nil {
-		// 其他错误
 		slog.Error("Error checking directory", "error", err)
 		return
 	}
 
+	// 解析日期范围
+	var start, end string
+	if dateRange != "" {
+		start, end = parseDateRange(dateRange)
+		if start == "" && end == "" {
+			slog.Error("Invalid date range", "date range", dateRange)
+			return
+		}
+	}
+
+	// 找到所有视频文件
+	filelist, err := findAllVedio(inputPath, start, end)
+	if err != nil {
+		return
+	}
+	if len(filelist) == 0 {
+		slog.Error("No video files found")
+		return
+	}
+
+	// 合并视频文件
+	err = mergeVideoFiles(outputPath, filelist)
+	if err != nil {
+		return
+	}
+}
+
+var validDate = regexp.MustCompile(`^\d{8}$`)
+
+// 解析日期范围
+func parseDateRange(dateRange string) (string, string) {
+	if dateRange == "" {
+		return "", ""
+	}
+	i := strings.Index(dateRange, "-")
+	if i == -1 {
+		return "", ""
+	}
+	start, end := dateRange[:i], dateRange[i+1:]
+	if (start != "" && !validDate.MatchString(start)) || (end != "" && !validDate.MatchString(end)) {
+		return "", ""
+	}
+	return start, end
+}
+
+// 小米监控视频文件名格式，如：20240706212250_20240706213600.mp4
+var videofileReg = regexp.MustCompile(`\d{14}_\d{14}\.mp4`)
+
+// 遍历目录，找到所有视频文件
+func findAllVedio(inputPath, startdate, enddate string) (map[string][]string, error) {
 	// 保存文件列表用于合并，key为文件日期，value为文件路径列表
 	filelist := make(map[string][]string)
-
 	// 遍历目录
 	// TODO：记录合并进度，支持增量合并
 	err := filepath.WalkDir(inputPath, func(path string, d os.DirEntry, err error) error {
@@ -88,28 +134,30 @@ func run() {
 		if !videofileReg.MatchString(d.Name()) {
 			return nil
 		}
-		slog.Info("遍历目录", "发现文件", d.Name())
-
 		// 合并有效路径
 		date := d.Name()[:8] // 获取文件日期
+		if startdate != "" && date < startdate {
+			return nil
+		}
+		if enddate != "" && date > enddate {
+			return nil
+		}
+		slog.Info("遍历目录", "发现有效视频文件", d.Name())
 		filelist[date] = append(filelist[date], "file '"+path+"'\n")
-
 		return nil
 	})
 	if err != nil {
-		// 目录遍历失败，终止合并
 		slog.Error("遍历目录失败：", "失败原因", err)
-		return
+		return nil, err
 	}
+	return filelist, nil
+}
 
-	if len(filelist) == 0 {
-		slog.Error("No video files found")
-		return
-	}
-
+func mergeVideoFiles(outputPath string, filelist map[string][]string) error {
+	nowdate := time.Now().Format("20060102")
 	merge := func(date string, files []string) error {
 		// 只合并当天之前的文件
-		if date >= time.Now().Format("20060102") {
+		if date >= nowdate {
 			return nil
 		}
 		fileName := date + ".mp4"
@@ -118,7 +166,7 @@ func run() {
 		if _, err := os.Stat(outputFilePath); err == nil {
 			return nil
 		}
-		// 按时间排序
+		// 按日期排序
 		sort.StringSlice(files).Sort()
 		content := strings.Join(files, "")
 		// 生成文件列表
@@ -130,12 +178,12 @@ func run() {
 		err := saveMergedVideo(inputFilesPath, outputFilePath)
 		return err
 	}
-
 	for date, files := range filelist {
 		if err := merge(date, files); err != nil {
-			return
+			return err
 		}
 	}
+	return nil
 }
 
 func saveFileList(filePath, content string) error {
