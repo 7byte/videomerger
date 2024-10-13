@@ -125,6 +125,7 @@ var videofileReg = regexp.MustCompile(`^\d{14}_\d{14}\.mp4$`)
 func findAllVedio(inputPath, startdate, enddate string) (map[string][]string, error) {
 	// 保存文件列表用于合并，key为文件日期，value为文件路径列表
 	filelist := make(map[string][]string)
+	nowdate := time.Now().Format("20060102")
 	// 遍历目录
 	// TODO：记录合并进度，支持增量合并
 	err := filepath.WalkDir(inputPath, func(path string, d os.DirEntry, err error) error {
@@ -136,6 +137,10 @@ func findAllVedio(inputPath, startdate, enddate string) (map[string][]string, er
 		}
 		// 合并有效路径
 		date := d.Name()[:8] // 获取文件日期
+		// 只合并当天之前的文件
+		if date >= nowdate {
+			return nil
+		}
 		if startdate != "" && date < startdate {
 			return nil
 		}
@@ -154,16 +159,12 @@ func findAllVedio(inputPath, startdate, enddate string) (map[string][]string, er
 }
 
 func mergeVideoFiles(outputPath string, filelist map[string][]string) error {
-	nowdate := time.Now().Format("20060102")
 	merge := func(date string, files []string) error {
-		// 只合并当天之前的文件
-		if date >= nowdate {
-			return nil
-		}
 		fileName := date + ".mp4"
 		outputFilePath := filepath.Join(outputPath, fileName)
 		// 检查是否已经合并
 		if _, err := os.Stat(outputFilePath); err == nil {
+			slog.Info("文件已存在", "文件路径", outputFilePath)
 			return nil
 		}
 		// 按日期排序
