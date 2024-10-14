@@ -1,10 +1,13 @@
-FROM golang:1.22.5 AS go_build
+FROM --platform=$BUILDPLATFORM golang:1.22.5 AS go_build
+
+ARG TARGETOS
+ARG TARGETARCH
 
 WORKDIR /build
 
 COPY . .
 
-RUN CGO_ENABLE=0 go build -o merge_xiaomi_monitor_video main.go
+RUN CGO_ENABLE=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -o merge_xiaomi_monitor_video main.go
 
 FROM ubuntu:24.04
 
