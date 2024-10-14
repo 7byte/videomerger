@@ -1,4 +1,4 @@
-FROM golang:1.22.5 as build
+FROM golang:1.22.5 AS go_build
 
 WORKDIR /build
 
@@ -22,9 +22,9 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-COPY --from=build /build/merge_xiaomi_monitor_video /app/merge_xiaomi_monitor_video
+COPY --from=go_build /build/merge_xiaomi_monitor_video /app/merge_xiaomi_monitor_video
 
 VOLUME ["/app/videos", "/app/output"]
 
-ENTRYPOINT ["/app/merge_xiaomi_monitor_video", "-i", "/app/videos", "-o", "/app/output"]
+ENTRYPOINT ["/app/merge_xiaomi_monitor_video", "merge", "-i", "/app/videos", "-o", "/app/output"]
 CMD []
