@@ -1,6 +1,8 @@
 # Default target executed when no arguments are given to make
 .DEFAULT_GOAL := all
 
+.PHONY: all build clean docker_builder image
+
 all: build
 
 build:
