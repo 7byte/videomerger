@@ -31,5 +31,4 @@ docker_builder:
 image:
 	@echo "Building the docker image with version $(VERSION)..."
 	@docker images|grep $(IMAGE_NAME) && docker rmi $(IMAGE_NAME) || true
-	@mkdir -p images
 	docker buildx build --platform $(PLATFORM) --build-arg http_proxy=$(HTTP_PROXY) --build-arg https_proxy=$(HTTPS_PROXY) --build-arg no_proxy=$(NO_PROXY) -t $(IMAGE_NAME) -o type=docker .
