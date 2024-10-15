@@ -27,7 +27,7 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVarP(&loglevel, "log.level", "l", "info", "log level (debug, info, warn, error)")
+	rootCmd.PersistentFlags().StringVarP(&loglevel, "log.level", "l", "info", "日志等级（debug, info, warn, error）")
 	cobra.OnInitialize(initLog)
 }
 

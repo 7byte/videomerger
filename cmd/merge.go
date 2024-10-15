@@ -47,10 +47,10 @@ var mergeCmd = &cobra.Command{
 }
 
 func init() {
-	mergeCmd.Flags().StringVarP(&inputPath, "input_path", "i", "", "input path of video files")
-	mergeCmd.Flags().StringVarP(&outputPath, "output_path", "o", ".", "output path of merged video, default is current path")
-	mergeCmd.Flags().StringVarP(&cronSpec, "cron_spec", "c", "", "cron spec, default is empty that means run once")
-	mergeCmd.Flags().StringVarP(&dateRange, "date_range", "r", "", "date range like \"20060102-20060202\", both start date and end date can be empty, default is empty that means merge all files")
+	mergeCmd.Flags().StringVarP(&inputPath, "input_path", "i", "", "待合并视频文件的目录")
+	mergeCmd.Flags().StringVarP(&outputPath, "output_path", "o", ".", "合并后视频的输出路径，默认为当前路径")
+	mergeCmd.Flags().StringVarP(&cronSpec, "cron_spec", "c", "", "cron表达式，默认为空，即只运行一次")
+	mergeCmd.Flags().StringVarP(&dateRange, "date_range", "r", "", "日期范围，如\"20060102-20060202\"，开始日期和结束日期都可以为空，默认为空，即合并所有文件")
 	rootCmd.AddCommand(mergeCmd)
 }
 
