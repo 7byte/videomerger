@@ -12,19 +12,22 @@ clean:
 	@rm -rf bin/ images/
 
 VERSION ?= latest
-PLATFORM ?= linux/amd64,linux/arm64
+IMAGE_NAME = git.7bytes.xyz/merge_xiaomi_monitor_video:$(VERSION)
+
+ARCH := $(shell uname -m)
+PLATFORM ?= linux/$(ARCH)
+
 HTTP_PROXY ?= 
 HTTPS_PROXY ?= 
 NO_PROXY ?= localhost,127.0.0.1
 
 docker_builder:
 	@echo "Create the docker builder..."
-	@docker buildx create --driver docker-container --platform linux/amd64,linux/arm64 --name multi-builder
-	@docker buildx use multi-builder
-	@docker buildx inspect --bootstrap
+	docker buildx inspect multi-builder > /dev/null || docker buildx create --driver docker-container --platform linux/amd64,linux/arm64 --name multi-builder --use
+	docker buildx inspect --bootstrap
 
 image:
 	@echo "Building the docker image with version $(VERSION)..."
-	@docker rmi -f git.7bytes.xyz/merge_xiaomi_monitor_video:$(VERSION) || true
+	@docker images|grep $(IMAGE_NAME) && docker rmi $(IMAGE_NAME) || true
 	@mkdir -p images
-	@docker buildx build --platform $(PLATFORM) --build-arg http_proxy=$(HTTP_PROXY) --build-arg https_proxy=$(HTTPS_PROXY) --build-arg no_proxy=$(NO_PROXY) -t git.7bytes.xyz/merge_xiaomi_monitor_video:$(VERSION) -o type=local,dest=./images/ .
+	docker buildx build --platform $(PLATFORM) --build-arg http_proxy=$(HTTP_PROXY) --build-arg https_proxy=$(HTTPS_PROXY) --build-arg no_proxy=$(NO_PROXY) -t $(IMAGE_NAME) -o type=docker .
