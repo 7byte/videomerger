@@ -13,9 +13,9 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "merge_xiaomi_monitor_video",
-	Short: "Merge xiaomi monitor video files",
-	Long:  "Merge xiaomi monitor video files",
+	Use:   "videomerger",
+	Short: "Merge monitor video files",
+	Long:  "Merge monitor video files",
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

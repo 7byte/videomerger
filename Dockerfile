@@ -7,15 +7,15 @@ WORKDIR /build
 
 COPY . .
 
-RUN CGO_ENABLE=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -o merge_xiaomi_monitor_video main.go
+RUN CGO_ENABLE=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -o videomerger main.go
 
 FROM linuxserver/ffmpeg:7.0.2
 
 WORKDIR /app
 
-COPY --from=go_build /build/merge_xiaomi_monitor_video /app/merge_xiaomi_monitor_video
+COPY --from=go_build /build/videomerger /app/videomerger
 
 VOLUME ["/app/videos", "/app/output"]
 
-ENTRYPOINT ["/app/merge_xiaomi_monitor_video", "merge", "-i", "/app/videos", "-o", "/app/output"]
+ENTRYPOINT ["/app/videomerger", "merge", "-i", "/app/videos", "-o", "/app/output"]
 CMD []

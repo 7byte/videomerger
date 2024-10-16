@@ -1,4 +1,4 @@
-module git.7bytes.xyz/merge_xiaomi_monitor_video
+module github.com/7byte/videomerger
 
 go 1.22.5
 

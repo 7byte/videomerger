@@ -1,6 +1,6 @@
 package main
 
-import "git.7bytes.xyz/merge_xiaomi_monitor_video/cmd"
+import "github.com/7byte/videomerger/cmd"
 
 func main() {
 	cmd.Execute()
