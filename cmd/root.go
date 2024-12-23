@@ -9,7 +9,9 @@ import (
 )
 
 var (
-	loglevel string
+	loglevel   string
+	inputPath  string
+	outputPath string
 )
 
 var rootCmd = &cobra.Command{
@@ -28,6 +30,8 @@ func Execute() {
 
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&loglevel, "log.level", "l", "info", "日志等级（debug, info, warn, error）")
+	rootCmd.PersistentFlags().StringVarP(&inputPath, "input_path", "i", "", "待处理视频文件的目录")
+	rootCmd.PersistentFlags().StringVarP(&outputPath, "output_path", "o", ".", "处理后视频的输出路径，默认为当前路径")
 	cobra.OnInitialize(initLog)
 }
 

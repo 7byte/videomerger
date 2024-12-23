@@ -4,57 +4,55 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/7byte/videomerger/internal"
 	"github.com/robfig/cron/v3"
 	"github.com/spf13/cobra"
 )
 
-var (
-	inputPath  string
-	outputPath string
-	cronSpec   string
-	dateRange  string
-)
+type mergeFLags struct {
+	cronSpec  string
+	dateRange string
+}
+
+var defaultMergeFlags mergeFLags
 
 var mergeCmd = &cobra.Command{
 	Use:   "merge",
 	Short: "Merge video files",
 	Long:  "Merge video files",
 	Run: func(cmd *cobra.Command, args []string) {
-		if cronSpec != "" {
+		if defaultMergeFlags.cronSpec != "" {
 			// 定时任务
-			slog.Info("定时任务启动", "cron spec", cronSpec)
+			slog.Info("定时任务启动", "cron spec", defaultMergeFlags.cronSpec)
 			c := cron.New(cron.WithChain(
 				cron.Recover(cron.DefaultLogger),
 				cron.SkipIfStillRunning(cron.DefaultLogger),
 			))
-			c.AddFunc(cronSpec, func() {
+			c.AddFunc(defaultMergeFlags.cronSpec, func() {
 				slog.Info("定时任务执行")
-				run()
+				merge()
 			})
 			c.Start()
 			select {}
 		} else {
-			run()
+			merge()
 		}
 	},
 }
 
 func init() {
-	mergeCmd.Flags().StringVarP(&inputPath, "input_path", "i", "", "待合并视频文件的目录")
-	mergeCmd.Flags().StringVarP(&outputPath, "output_path", "o", ".", "合并后视频的输出路径，默认为当前路径")
-	mergeCmd.Flags().StringVarP(&cronSpec, "cron_spec", "c", "", "cron表达式，默认为空，即只运行一次，cron语法参考：https://en.m.wikipedia.org/wiki/Cron")
-	mergeCmd.Flags().StringVarP(&dateRange, "date_range", "r", "", "日期范围，如\"20060102-20060202\"，开始日期和结束日期都可以为空，默认为空，即合并所有文件")
+	mergeCmd.Flags().StringVarP(&defaultMergeFlags.cronSpec, "cron_spec", "c", "", "cron表达式，默认为空，即只运行一次，cron语法参考：https://en.m.wikipedia.org/wiki/Cron")
+	mergeCmd.Flags().StringVarP(&defaultMergeFlags.dateRange, "date_range", "r", "", "日期范围，如\"20060102-20060202\"，开始日期和结束日期都可以为空，默认为空，即合并所有文件")
 	rootCmd.AddCommand(mergeCmd)
 }
 
-func run() {
+func merge() {
 	if inputPath == "" {
 		slog.Error("input path is empty")
 		return
@@ -75,10 +73,10 @@ func run() {
 
 	// 解析日期范围
 	var start, end string
-	if dateRange != "" {
-		start, end = parseDateRange(dateRange)
+	if defaultMergeFlags.dateRange != "" {
+		start, end = parseDateRange(defaultMergeFlags.dateRange)
 		if start == "" && end == "" {
-			slog.Error("Invalid date range", "date range", dateRange)
+			slog.Error("Invalid date range", "date range", defaultMergeFlags.dateRange)
 			return
 		}
 	}
@@ -210,27 +208,10 @@ func saveFileList(filePath, content string) error {
 func saveMergedVideo(inputFilesPath, outputFilePath string) error {
 	slog.Info("执行文件合并", "输入文件列表", inputFilesPath)
 	// 执行指令 ffmpeg -f concat -i files.txt -c copy !name!.mov
-	if err := execCommand("ffmpeg", "-f", "concat", "-safe", "0", "-i", inputFilesPath, "-c", "copy", outputFilePath); err != nil {
+	if err := internal.ExecCommand("ffmpeg", "-f", "concat", "-safe", "0", "-i", inputFilesPath, "-c", "copy", outputFilePath); err != nil {
 		slog.Error("合并文件失败", "输入文件列表", inputFilesPath, "失败原因", err)
 		return err
 	}
 	slog.Info("合并文件成功", "输出文件路径", outputFilePath)
-	return nil
-}
-
-func execCommand(name string, arg ...string) error {
-	// 创建一个命令
-	cmd := exec.Command(name, arg...)
-	//cmd.Dir = workpath
-	slog.Debug("执行命令", "命令参数", cmd)
-	// 执行命令
-	out, err := cmd.Output()
-	if err != nil {
-		return err
-	}
-	// 打印命令输出
-	if string(out) != "" {
-		slog.Debug("指令执行完成", "执行结果", string(out))
-	}
 	return nil
 }
