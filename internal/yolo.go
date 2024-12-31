@@ -6,27 +6,10 @@ import (
 	"image"
 	"log/slog"
 	"math"
-	"os"
 	"time"
 
 	"gocv.io/x/gocv"
 )
-
-//go:embed yolo11n.onnx
-var yolo11n []byte
-
-// Array of YOLOv8 class labels
-var classes = []string{
-	"person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat",
-	"traffic light", "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat", "dog", "horse",
-	"sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie",
-	"suitcase", "frisbee", "skis", "snowboard", "sports ball", "kite", "baseball bat", "baseball glove",
-	"skateboard", "surfboard", "tennis racket", "bottle", "wine glass", "cup", "fork", "knife", "spoon",
-	"bowl", "banana", "apple", "sandwich", "orange", "broccoli", "carrot", "hot dog", "pizza", "donut",
-	"cake", "chair", "couch", "potted plant", "bed", "dining table", "toilet", "tv", "laptop", "mouse",
-	"remote", "keyboard", "cell phone", "microwave", "oven", "toaster", "sink", "refrigerator", "book",
-	"clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush",
-}
 
 type YoloDetection struct {
 	net            gocv.Net
@@ -35,22 +18,9 @@ type YoloDetection struct {
 	samplerate     float64
 }
 
-func NewYoloDetection(kind, model string, mindur, maxgap time.Duration, samplerate float64) (*YoloDetection, error) {
-	var bs []byte
-	if model == "" {
-		bs = yolo11n
-	} else {
-		var err error
-		bs, err = os.ReadFile(model)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read model file: %v", err)
-		}
-	}
+func NewYoloDetection(modelPath string, mindur, maxgap time.Duration, samplerate float64) (*YoloDetection, error) {
 	// TODO：支持其他模型
-	net, err := gocv.ReadNetFromONNXBytes(bs)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read YOLO model: %v", err)
-	}
+	net := gocv.ReadNetFromONNX(modelPath)
 	if net.Empty() {
 		return nil, fmt.Errorf("failed to load YOLO model")
 	}
@@ -127,8 +97,7 @@ func detect(net *gocv.Net, src *gocv.Mat, outputNames []string) bool {
 	indices := gocv.NMSBoxes(iboxes, confidences, scoreThreshold, nmsThreshold)
 
 	for _, i := range indices {
-		class := classes[classIds[i]]
-		if class == "person" {
+		if classIds[i] == 0 {
 			return true
 		}
 	}

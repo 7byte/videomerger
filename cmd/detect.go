@@ -10,18 +10,22 @@ import (
 )
 
 type detectFlags struct {
-	threshold   float64
+	modelType   string
+	modelPath   string
 	minDuration float64
 	maxGap      float64
 	sampleRate  float64
 }
 
-var defaultDetectFlags detectFlags
+var dFlags detectFlags
 
 var detectCmd = &cobra.Command{
 	Use:   "detect",
-	Short: "Detect face in video",
-	Long:  "Detect face in video",
+	Short: "识别并提取视频中出现人物的片段",
+	Long: `识别并提取视频中出现人物的片段
+支持的检测模型：
+    yolo：使用yolo模型检测人物，模型文件下载地址：https://colab.research.google.com/github/ultralytics/ultralytics/blob/main/examples/tutorial.ipynb
+    yunet：使用face_detection_yunet模型检测人物，模型文件下载地址：https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet`,
 	Run: func(cmd *cobra.Command, args []string) {
 		detect()
 
@@ -34,10 +38,11 @@ var detectCmd = &cobra.Command{
 }
 
 func init() {
-	//detectCmd.Flags().Float64VarP(&defaultDetectFlags.threshold, "threshold", "t", 50000, "画面变化检测阈值")
-	detectCmd.Flags().Float64Var(&defaultDetectFlags.minDuration, "min_duration", 1, "最小持续时间，单位秒，默认为 1 秒。只有当画面人物出现的持续时间超过该时长，才认为是一个有效片段")
-	detectCmd.Flags().Float64Var(&defaultDetectFlags.maxGap, "max_gap", 10, "最大间隔时间，单位秒，默认为 10 秒。两个有效片段之间的间隔时间超过该时长，会被认为是两个不同的片段，否则会被合并为一个片段")
-	detectCmd.Flags().Float64Var(&defaultDetectFlags.sampleRate, "sample_rate", 1, "采样率，单位次/秒，默认为 1。每秒采样检测的帧数")
+	detectCmd.Flags().StringVarP(&dFlags.modelType, "model_type", "m", "yolo", "检测模型：yolo、yunet")
+	detectCmd.Flags().StringVarP(&dFlags.modelPath, "model_path", "p", "", "模型路径，模型文件需要与检测类别对应")
+	detectCmd.Flags().Float64VarP(&dFlags.minDuration, "min_duration", "d", 1.0, "最小持续时间（秒）。只有当画面人物出现的持续时间超过该时长，才认为是一个有效片段")
+	detectCmd.Flags().Float64VarP(&dFlags.maxGap, "max_gap", "g", 10.0, "最大间隔时间（秒）。两个有效片段之间的间隔时间超过该时长，会被认为是两个不同的片段，否则会被合并为一个片段")
+	detectCmd.Flags().Float64VarP(&dFlags.sampleRate, "sample_rate", "r", 1.0, "采样率（次/秒）。每秒采样检测的帧数")
 	rootCmd.AddCommand(detectCmd)
 }
 
@@ -46,15 +51,30 @@ func detect() {
 		slog.Error("input path is empty")
 		return
 	}
-	min := time.Duration(defaultDetectFlags.minDuration) * time.Second
-	max := time.Duration(defaultDetectFlags.maxGap) * time.Second
+	min := time.Duration(dFlags.minDuration) * time.Second
+	max := time.Duration(dFlags.maxGap) * time.Second
 
-	d, err := internal.NewYoloDetection("onnx", "", min, max, defaultDetectFlags.sampleRate)
-	if err != nil {
-		slog.Error("Error initializing yolo detection", "error", err)
+	var detector internal.Detector
+	switch dFlags.modelType {
+	case "yolo":
+		d, err := internal.NewYoloDetection(dFlags.modelPath, min, max, dFlags.sampleRate)
+		if err != nil {
+			slog.Error("Error initializing yolo detection", "error", err)
+			return
+		}
+		detector = d
+	case "yunet":
+		d, err := internal.NewFaceDetectYN(dFlags.modelPath, min, max, dFlags.sampleRate)
+		if err != nil {
+			slog.Error("Error initializing yunet detection", "error", err)
+			return
+		}
+		detector = d
+	default:
+		slog.Error("Unknown detect class", "detect_class", dFlags.modelType)
 		return
 	}
-	defer d.Close()
+	defer detector.Close()
 
 	video, err := gocv.VideoCaptureFile(inputPath)
 	if err != nil {
@@ -64,7 +84,7 @@ func detect() {
 	defer video.Close()
 
 	slog.Info("人物检测开始", "视频路径", inputPath)
-	segments, err := d.Detect(video)
+	segments, err := detector.Detect(video)
 	if err != nil {
 		slog.Error("Error detecting", "error", err)
 		return

@@ -20,21 +20,21 @@ type mergeFLags struct {
 	dateRange string
 }
 
-var defaultMergeFlags mergeFLags
+var mFlags mergeFLags
 
 var mergeCmd = &cobra.Command{
 	Use:   "merge",
-	Short: "Merge video files",
-	Long:  "Merge video files",
+	Short: "自动发现、合并视频文件",
+	Long:  "自动发现、合并视频文件",
 	Run: func(cmd *cobra.Command, args []string) {
-		if defaultMergeFlags.cronSpec != "" {
+		if mFlags.cronSpec != "" {
 			// 定时任务
-			slog.Info("定时任务启动", "cron spec", defaultMergeFlags.cronSpec)
+			slog.Info("定时任务启动", "cron spec", mFlags.cronSpec)
 			c := cron.New(cron.WithChain(
 				cron.Recover(cron.DefaultLogger),
 				cron.SkipIfStillRunning(cron.DefaultLogger),
 			))
-			c.AddFunc(defaultMergeFlags.cronSpec, func() {
+			c.AddFunc(mFlags.cronSpec, func() {
 				slog.Info("定时任务执行")
 				merge()
 			})
@@ -47,8 +47,8 @@ var mergeCmd = &cobra.Command{
 }
 
 func init() {
-	mergeCmd.Flags().StringVarP(&defaultMergeFlags.cronSpec, "cron_spec", "c", "", "cron表达式，默认为空，即只运行一次，cron语法参考：https://en.m.wikipedia.org/wiki/Cron")
-	mergeCmd.Flags().StringVarP(&defaultMergeFlags.dateRange, "date_range", "r", "", "日期范围，如\"20060102-20060202\"，开始日期和结束日期都可以为空，默认为空，即合并所有文件")
+	mergeCmd.Flags().StringVarP(&mFlags.cronSpec, "cron_spec", "c", "", "cron表达式，默认为空，即只运行一次，cron语法参考：https://en.m.wikipedia.org/wiki/Cron")
+	mergeCmd.Flags().StringVarP(&mFlags.dateRange, "date_range", "r", "", "日期范围，如\"20060102-20060202\"，开始日期和结束日期都可以为空，默认为空，即合并所有文件")
 	rootCmd.AddCommand(mergeCmd)
 }
 
@@ -73,10 +73,10 @@ func merge() {
 
 	// 解析日期范围
 	var start, end string
-	if defaultMergeFlags.dateRange != "" {
-		start, end = parseDateRange(defaultMergeFlags.dateRange)
+	if mFlags.dateRange != "" {
+		start, end = parseDateRange(mFlags.dateRange)
 		if start == "" && end == "" {
-			slog.Error("Invalid date range", "date range", defaultMergeFlags.dateRange)
+			slog.Error("Invalid date range", "date range", mFlags.dateRange)
 			return
 		}
 	}
