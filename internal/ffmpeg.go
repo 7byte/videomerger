@@ -43,11 +43,11 @@ type Segment struct {
 }
 
 // ExtractSegments 使用 FFmpeg 截取片段
-func ExtractSegments(inputPath, outputPath string, segments []Segment) error {
+func ExtractSegments(inputPath, outputPath, filePrefix string, segments []Segment) error {
 	slog.Info("开始截取片段", "输入文件", inputPath)
-	for idx, segment := range segments {
-		start, duration := segment.Start, segment.End-segment.Start
-		outputFileName := filepath.Join(outputPath, fmt.Sprintf("output_segment_%d.mp4", idx))
+	for _, s := range segments {
+		start, duration := s.Start, s.End-s.Start
+		outputFileName := filepath.Join(outputPath, fmt.Sprintf("%s_%d_%d.mp4", filePrefix, int(s.Start), int(s.End)))
 		err := execCommand("ffmpeg", "-i", inputPath, "-ss", fmt.Sprintf("%.2f", start), "-t", fmt.Sprintf("%.2f", duration), "-c", "copy", outputFileName)
 		if err != nil {
 			slog.Error("截取片段失败", "输入文件", inputPath, "失败原因", err)

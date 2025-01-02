@@ -35,7 +35,7 @@ var mergeCmd = &cobra.Command{
 				cron.SkipIfStillRunning(cron.DefaultLogger),
 			))
 			c.AddFunc(mFlags.cronSpec, func() {
-				slog.Info("定时任务执行")
+				slog.Info("定时任务开始执行")
 				merge()
 			})
 			c.Start()
