@@ -1,0 +1,31 @@
+FROM alpine:edge AS build
+
+ARG TARGETARCH
+
+WORKDIR /build
+
+RUN apk update && \
+    apk add --no-cache opencv-dev=4.10.0-r3 go gcc g++ libc-dev && \
+    rm -rf /var/cache/apk/*
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+RUN CGO_ENABLED=1 GOOS=linux GOARCH=$TARGETARCH go build -o videomerger main.go
+
+FROM alpine:edge
+
+WORKDIR /app
+
+RUN apk update && \
+    apk add --no-cache ffmpeg opencv-dev=4.10.0-r3 && \
+    rm -rf /var/cache/apk/*
+
+COPY --from=build /build/videomerger /app/videomerger
+
+VOLUME ["/app/videos", "/app/output"]
+
+ENTRYPOINT ["/app/videomerger", "-i", "/app/videos", "-o", "/app/output"]
+CMD []

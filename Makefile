@@ -33,3 +33,9 @@ image:
 	@echo "Building the docker image with version $(VERSION)..."
 	@docker inspect $(IMAGE_NAME) > /dev/null && docker rmi $(IMAGE_NAME) || true
 	docker buildx build --platform $(PLATFORM) --build-arg http_proxy=$(HTTP_PROXY) --build-arg https_proxy=$(HTTPS_PROXY) --build-arg no_proxy=$(NO_PROXY) -t $(IMAGE_NAME) -o type=docker .
+
+image_slim:
+	@echo "Building the docker image with version $(VERSION)..."
+	@docker inspect $(IMAGE_NAME) > /dev/null && docker rmi $(IMAGE_NAME) || true
+	docker buildx build --platform $(PLATFORM) --build-arg http_proxy=$(HTTP_PROXY) --build-arg https_proxy=$(HTTPS_PROXY) --build-arg no_proxy=$(NO_PROXY) -f Dockerfile.alpine -t $(IMAGE_NAME) -o type=docker .
+	slim build --http-probe=false --include-bin /usr/bin/ffmpeg $(IMAGE_NAME)
