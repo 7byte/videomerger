@@ -35,9 +35,17 @@ multi_builder:
 # 	@docker inspect $(IMAGE_NAME) > /dev/null && docker rmi $(IMAGE_NAME) || true
 # 	docker buildx build --platform $(PLATFORM) --build-arg http_proxy=$(HTTP_PROXY) --build-arg https_proxy=$(HTTPS_PROXY) --build-arg no_proxy=$(NO_PROXY) -t $(IMAGE_NAME) -o type=docker .
 
+# install slim: https://github.com/slimtoolkit/slim?tab=readme-ov-file#installation
 image:
 	@echo "Building the docker image with version $(VERSION)..."
 	@docker inspect $(IMAGE_NAME) > /dev/null && docker rmi $(IMAGE_NAME) || true
 	docker buildx build --platform $(PLATFORM) --build-arg http_proxy=$(HTTP_PROXY) --build-arg https_proxy=$(HTTPS_PROXY) --build-arg no_proxy=$(NO_PROXY) -f Dockerfile -t $(IMAGE_NAME_FAT) -o type=docker .
 	slim build --http-probe=false --continue-after=1 --include-bin /usr/bin/ffmpeg --tag $(IMAGE_NAME) $(IMAGE_NAME_FAT)
+	docker rmi $(IMAGE_NAME_FAT)
+
+image_in_container:
+	@echo "Building the docker image with version $(VERSION)..."
+	@docker inspect $(IMAGE_NAME) > /dev/null && docker rmi $(IMAGE_NAME) || true
+	docker buildx build --platform $(PLATFORM) --build-arg http_proxy=$(HTTP_PROXY) --build-arg https_proxy=$(HTTPS_PROXY) --build-arg no_proxy=$(NO_PROXY) -f Dockerfile -t $(IMAGE_NAME_FAT) -o type=docker .
+	docker run -it --rm --platform $(PLATFORM) -v /var/run/docker.sock:/var/run/docker.sock dslim/slim --in-container build --http-probe=false --continue-after=1 --include-bin /usr/bin/ffmpeg --tag $(IMAGE_NAME) $(IMAGE_NAME_FAT)
 	docker rmi $(IMAGE_NAME_FAT)
