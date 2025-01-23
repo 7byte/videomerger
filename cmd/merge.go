@@ -54,7 +54,7 @@ func init() {
 
 func merge() {
 	if inputPath == "" {
-		slog.Error("input path is empty")
+		slog.Error("需要指定视频文件所在路径")
 		return
 	}
 

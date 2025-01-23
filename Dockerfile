@@ -17,7 +17,7 @@ RUN CGO_ENABLED=1 GOOS=linux GOARCH=$TARGETARCH go build -o /app/videomerger mai
 
 WORKDIR /app
 
-VOLUME ["/app/videos", "/app/output"]
+VOLUME ["/app/videos", "/app/output", "/app/models"]
 
 ENTRYPOINT ["/app/videomerger", "-i", "/app/videos", "-o", "/app/output"]
 CMD []

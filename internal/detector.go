@@ -92,16 +92,13 @@ func (y *YoloDetector) detect(net *gocv.Net, src *gocv.Mat, outputNames []string
 		}
 	}()
 
-	boxes, confidences, classIds := y.performDetection(probs)
-	if len(boxes) == 0 {
+	_, classIds := y.performDetection(probs)
+	if len(classIds) == 0 {
 		return false
 	}
 
-	iboxes := params.BlobRectsToImageRects(boxes, image.Pt(src.Cols(), src.Rows()))
-	indices := gocv.NMSBoxes(iboxes, confidences, scoreThreshold, nmsThreshold)
-
-	for _, i := range indices {
-		if classIds[i] == 0 {
+	for _, id := range classIds {
+		if id == 0 { // 0 is person
 			return true
 		}
 	}
@@ -109,10 +106,9 @@ func (y *YoloDetector) detect(net *gocv.Net, src *gocv.Mat, outputNames []string
 	return false
 }
 
-func (y *YoloDetector) performDetection(outs []gocv.Mat) ([]image.Rectangle, []float32, []int) {
+func (y *YoloDetector) performDetection(outs []gocv.Mat) ([]float32, []int) {
 	var classIds []int
 	var confidences []float32
-	var boxes []image.Rectangle
 
 	gocv.TransposeND(outs[0], []int{0, 2, 1}, &outs[0])
 	for _, out := range outs {
@@ -120,24 +116,11 @@ func (y *YoloDetector) performDetection(outs []gocv.Mat) ([]image.Rectangle, []f
 		for i := 0; i < out.Rows(); i++ {
 			cols := out.Cols()
 			scoresCol := out.RowRange(i, i+1)
-
 			scores := scoresCol.ColRange(4, cols)
 			_, confidence, _, classIDPoint := gocv.MinMaxLoc(scores)
-
 			if confidence > 0.5 {
-				centerX := out.GetFloatAt(i, cols)
-				centerY := out.GetFloatAt(i, cols+1)
-				width := out.GetFloatAt(i, cols+2)
-				height := out.GetFloatAt(i, cols+3)
-
-				left := centerX - width/2
-				top := centerY - height/2
-				right := centerX + width/2
-				bottom := centerY + height/2
 				classIds = append(classIds, classIDPoint.X)
 				confidences = append(confidences, float32(confidence))
-
-				boxes = append(boxes, image.Rect(int(left), int(top), int(right), int(bottom)))
 			}
 			scores.Close()
 			scoresCol.Close()
@@ -145,7 +128,7 @@ func (y *YoloDetector) performDetection(outs []gocv.Mat) ([]image.Rectangle, []f
 		out.Close()
 	}
 
-	return boxes, confidences, classIds
+	return confidences, classIds
 }
 
 // Detect detects segments in a video stream
@@ -161,7 +144,7 @@ func (y *YoloDetector) Detect(vc *gocv.VideoCapture) ([]Segment, error) {
 		frameTime     = func() float64 { return float64(frameIndex) / fps } // 计算帧时间
 		frameInterval = int(math.Round(fps / y.samplerate))                 // 每多少帧执行一次检测，根据采样率计算，四舍五入取整
 	)
-	slog.Debug("检测视频参数", "视频帧率", fps, "采样率", y.samplerate, "帧检测间隔", frameInterval, "最小持续时间", y.mindur, "最大间隔时间", y.maxgap)
+	slog.Info("检测参数", "视频帧率", fps, "采样率", y.samplerate, "帧检测间隔", frameInterval, "最小持续时间", y.mindur, "最大间隔时间", y.maxgap)
 	for {
 		if ok := vc.Read(&frame); !ok {
 			break
@@ -236,6 +219,7 @@ func (y *YunetDetector) Detect(vc *gocv.VideoCapture) ([]Segment, error) {
 		frameTime     = func() float64 { return float64(frameIndex) / fps } // 计算帧时间
 		frameInterval = int(math.Round(fps / y.samplerate))                 // 每多少帧执行一次检测，根据采样率计算，四舍五入取整
 	)
+	slog.Info("检测参数", "视频帧率", fps, "采样率", y.samplerate, "帧检测间隔", frameInterval, "最小持续时间", y.mindur, "最大间隔时间", y.maxgap)
 
 	y.detector.SetInputSize(image.Pt(int(width), int(height)))
 	for {
