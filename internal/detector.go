@@ -146,20 +146,14 @@ func (y *YoloDetector) Detect(vc *gocv.VideoCapture) ([]Segment, error) {
 	)
 	slog.Info("检测参数", "视频帧率", fps, "采样率", y.samplerate, "帧检测间隔", frameInterval, "最小持续时间", y.mindur, "最大间隔时间", y.maxgap)
 	for {
-		if ok := vc.Read(&frame); !ok {
-			break
-		}
-		if frame.Empty() {
+		var ok bool
+		frameIndex, ok = nextFrame(vc, &frame, frameIndex, frameInterval)
+		if !ok {
 			break
 		}
 
 		nowtime := frameTime()
-		frameIndex++
-		if frameInterval > 0 && frameIndex%frameInterval != 0 {
-			continue
-		}
-
-		ok := y.detect(&y.net, &frame, y.outputNames)
+		ok = y.detect(&y.net, &frame, y.outputNames)
 		if ok {
 			lastIdx := len(segments) - 1
 			if len(segments) > 0 && nowtime-segments[lastIdx].End < y.maxgap.Seconds() {
@@ -178,6 +172,22 @@ func (y *YoloDetector) Detect(vc *gocv.VideoCapture) ([]Segment, error) {
 	}
 
 	return segments, nil
+}
+
+func nextFrame(vc *gocv.VideoCapture, frame *gocv.Mat, index, interval int) (int, bool) {
+	remain := index % interval
+	if remain != 0 {
+		index += interval - remain
+		vc.Grab(interval - remain)
+	}
+	next := index + 1
+	if ok := vc.Read(frame); !ok {
+		return next, false
+	}
+	if frame.Empty() {
+		return next, false
+	}
+	return next, true
 }
 
 type YunetDetector struct {
@@ -223,20 +233,13 @@ func (y *YunetDetector) Detect(vc *gocv.VideoCapture) ([]Segment, error) {
 
 	y.detector.SetInputSize(image.Pt(int(width), int(height)))
 	for {
-		if ok := vc.Read(&frame); !ok {
-			break
-		}
-		if frame.Empty() {
+		var end bool
+		frameIndex, end = nextFrame(vc, &frame, frameIndex, frameInterval)
+		if end {
 			break
 		}
 
 		nowtime := frameTime()
-		frameIndex++
-		if frameInterval > 0 && frameIndex%frameInterval != 0 {
-			continue
-		}
-
-		//gocv.Resize(frame, &frame, image.Pt(int(width), int(height)), 0, 0, gocv.InterpolationLinear)
 		y.detector.Detect(frame, &faces)
 		if faces.Rows() >= 1 {
 			lastIdx := len(segments) - 1
