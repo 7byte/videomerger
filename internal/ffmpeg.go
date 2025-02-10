@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os/exec"
 	"path/filepath"
+	"sort"
 )
 
 // execCommand 执行命令
@@ -42,12 +43,19 @@ type Segment struct {
 	End   float64
 }
 
+type Segments []Segment
+
+func (s Segments) Len() int           { return len(s) }
+func (s Segments) Less(i, j int) bool { return s[i].Start < s[j].Start }
+func (s Segments) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+
 // ExtractSegments 使用 FFmpeg 截取片段
-func ExtractSegments(inputPath, outputPath, filePrefix string, segments []Segment) error {
+func ExtractSegments(inputPath, outputPath, filePrefix string, segments Segments) error {
 	slog.Info("开始截取片段", "文件", inputPath)
+	sort.Sort(segments)
 	for _, s := range segments {
 		start, duration := s.Start, s.End-s.Start
-		outputFileName := filepath.Join(outputPath, fmt.Sprintf("%s_%d_%d.mp4", filePrefix, int(s.Start), int(s.End)))
+		outputFileName := filepath.Join(outputPath, fmt.Sprintf("%s_%05d_%05d.mp4", filePrefix, int(s.Start), int(s.End)))
 		err := execCommand("ffmpeg", "-i", inputPath, "-ss", fmt.Sprintf("%.2f", start), "-t", fmt.Sprintf("%.2f", duration), "-c", "copy", outputFileName)
 		if err != nil {
 			slog.Error("截取片段失败", "文件", inputPath, "失败原因", err)
